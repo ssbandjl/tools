@@ -36,3 +36,18 @@ this repository, see https://golang.org/doc/contribute.html.
 The main issue tracker for the tools repository is located at
 https://github.com/golang/go/issues. Prefix your issue with "x/tools/(your
 subdir):" in the subject line, so it is easy to find.
+
+
+
+# 元编程
+
+## generate
+
+### stringer
+
+#### 简介
+
+作为二进制文件，`stringer` 命令的入口就是如下所示的 [`golang/tools/main.main`](https://draveness.me/golang/tree/golang/tools/main.main) 函数，在下面的代码中
+
+#### [代码位置](cmd/stringer)
+
