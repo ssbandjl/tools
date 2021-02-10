@@ -167,7 +167,7 @@ func main() {
 		lineComment: *linecomment,
 	}
 	// TODO(suzmue): accept other patterns for packages (directories, list of files, import paths, etc).
-	if len(args) == 1 && isDirectory(args[0]) {
+	if len(args) == 1 && isDirectory(args[0]) { //如果提供的参数只有1个,且为目录
 		dir = args[0]
 	} else {
 		if len(tags) != 0 {
@@ -175,7 +175,11 @@ func main() {
 		}
 		dir = filepath.Dir(args[0])
 	}
+	log.Printf("dir:%s", dir)
+	log.Printf("args:%v", args)
+	log.Printf("tags:%v", tags)
 
+	//分析单个包
 	g.parsePackage(args, tags)
 
 	// Print the header and package clause.
@@ -226,6 +230,7 @@ type Generator struct {
 	lineComment bool
 }
 
+// Printf 向内存中打印
 func (g *Generator) Printf(format string, args ...interface{}) {
 	fmt.Fprintf(&g.buf, format, args...)
 }
@@ -251,6 +256,7 @@ type Package struct {
 // parsePackage analyzes the single package constructed from the patterns and tags.
 // parsePackage exits if there is an error.
 func (g *Generator) parsePackage(patterns []string, tags []string) {
+	log.Printf("patterns:%v, tags:%v", patterns, tags)
 	cfg := &packages.Config{
 		Mode: packages.LoadSyntax,
 		// TODO: Need to think about constants in test files. Maybe write type_string_test.go
@@ -258,7 +264,9 @@ func (g *Generator) parsePackage(patterns []string, tags []string) {
 		Tests:      false,
 		BuildFlags: []string{fmt.Sprintf("-tags=%s", strings.Join(tags, " "))},
 	}
+	log.Printf("cfg:%v", cfg)
 	pkgs, err := packages.Load(cfg, patterns...)
+	log.Printf("pkgs:%v", pkgs)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -275,6 +283,7 @@ func (g *Generator) addPackage(pkg *packages.Package) {
 		defs:  pkg.TypesInfo.Defs,
 		files: make([]*File, len(pkg.Syntax)),
 	}
+	log.Printf("g.pkg:%v", g.pkg)
 
 	for i, file := range pkg.Syntax {
 		g.pkg.files[i] = &File{
@@ -284,21 +293,26 @@ func (g *Generator) addPackage(pkg *packages.Package) {
 			lineComment: g.lineComment,
 		}
 	}
+	log.Printf("g:%v", g)
 }
 
 // generate produces the String method for the named type.
 // 这里会生成一个签名为 _ 的函数，通过编译器保证枚举类型的值不会改变
 func (g *Generator) generate(typeName string) {
+	log.Printf("typeName:%s", typeName)
 	values := make([]Value, 0, 100)
 	for _, file := range g.pkg.files {
 		// Set the state for this run of the walker.
 		file.typeName = typeName
 		file.values = nil
 		if file.file != nil {
+
 			ast.Inspect(file.file, file.genDecl)
+			log.Printf("file.file.Name:%s", file.file.Name)
 			values = append(values, file.values...)
 		}
 	}
+	log.Printf("values:%v", values)
 
 	if len(values) == 0 {
 		log.Fatalf("no values defined for type %s", typeName)
@@ -381,6 +395,7 @@ func (g *Generator) format() []byte {
 }
 
 // Value represents a declared constant.
+// 值表示声明的常量
 type Value struct {
 	originalName string // The name of the constant.
 	name         string // The name with trimmed prefix.
