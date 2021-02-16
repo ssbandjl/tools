@@ -88,8 +88,8 @@ import (
 var (
 	typeNames   = flag.String("type", "", "comma-separated list of type names; must be set")
 	output      = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
-	trimprefix  = flag.String("trimprefix", "", "trim the `prefix` from the generated constant names")
-	linecomment = flag.Bool("linecomment", false, "use line comment text as printed text when present")
+	trimprefix  = flag.String("trimprefix", "", "trim the `prefix` from the generated constant names")  //从生成的常量名中需要去除的前缀
+	linecomment = flag.Bool("linecomment", false, "use line comment text as printed text when present") //使用行注释作为打印文本
 	buildTags   = flag.String("tags", "", "comma-separated list of build tags to apply")
 )
 
@@ -176,8 +176,8 @@ func main() {
 		dir = filepath.Dir(args[0])
 	}
 	log.Printf("dir:%s", dir)
-	log.Printf("args:%v", args)
-	log.Printf("tags:%v", tags)
+	// log.Printf("args:%v", args)
+	// log.Printf("tags:%v", tags)
 
 	//分析单个包
 	g.parsePackage(args, tags)
@@ -191,6 +191,7 @@ func main() {
 	g.Printf("import \"strconv\"\n") // Used by all methods.
 
 	// Run generate for each type.
+	// 核心业务逻辑, 生成类型
 	for _, typeName := range types {
 		g.generate(typeName)
 	}
@@ -204,6 +205,7 @@ func main() {
 		baseName := fmt.Sprintf("%s_string.go", types[0])
 		outputName = filepath.Join(dir, strings.ToLower(baseName))
 	}
+	//打开文件, 写入生成结果
 	err := ioutil.WriteFile(outputName, src, 0644)
 	if err != nil {
 		log.Fatalf("writing output: %s", err)
@@ -226,8 +228,8 @@ type Generator struct {
 	buf bytes.Buffer // Accumulated output. 累计结果
 	pkg *Package     // Package we are scanning. 包
 
-	trimPrefix  string
-	lineComment bool
+	trimPrefix  string //去除前缀
+	lineComment bool   //行注释
 }
 
 // Printf 向内存中打印
@@ -236,6 +238,7 @@ func (g *Generator) Printf(format string, args ...interface{}) {
 }
 
 // File holds a single parsed file and associated data.
+// 文件保存单个已解析相关的数据
 type File struct {
 	pkg  *Package  // Package to which this file belongs.
 	file *ast.File // Parsed AST.
@@ -249,14 +252,14 @@ type File struct {
 
 type Package struct {
 	name  string
-	defs  map[*ast.Ident]types.Object
+	defs  map[*ast.Ident]types.Object //defs定义? map的键为抽象语法树-标识,值为对象
 	files []*File
 }
 
 // parsePackage analyzes the single package constructed from the patterns and tags.
 // parsePackage exits if there is an error.
 func (g *Generator) parsePackage(patterns []string, tags []string) {
-	log.Printf("patterns:%v, tags:%v", patterns, tags)
+	log.Printf("parsePackage, patterns:%v, tags:%v", patterns, tags) //parsePackage, patterns:[.], tags:[]
 	cfg := &packages.Config{
 		Mode: packages.LoadSyntax,
 		// TODO: Need to think about constants in test files. Maybe write type_string_test.go
@@ -265,26 +268,28 @@ func (g *Generator) parsePackage(patterns []string, tags []string) {
 		BuildFlags: []string{fmt.Sprintf("-tags=%s", strings.Join(tags, " "))},
 	}
 	log.Printf("cfg:%v", cfg)
-	pkgs, err := packages.Load(cfg, patterns...)
-	log.Printf("pkgs:%v", pkgs)
+	pkgs, err := packages.Load(cfg, patterns...) //根据给定的目录返回golang包
+	log.Printf("packages.Load, pkgs:%v", pkgs)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if len(pkgs) != 1 {
 		log.Fatalf("error: %d packages found", len(pkgs))
 	}
+
 	g.addPackage(pkgs[0])
 }
 
 // addPackage adds a type checked Package and its syntax files to the generator.
+// 将检查过的包和语法文件添加到生成器
 func (g *Generator) addPackage(pkg *packages.Package) {
 	g.pkg = &Package{
 		name:  pkg.Name,
 		defs:  pkg.TypesInfo.Defs,
 		files: make([]*File, len(pkg.Syntax)),
 	}
-	log.Printf("g.pkg:%v", g.pkg)
-
+	log.Printf("addPackage g.pkg:%v", g.pkg)
+	log.Printf("pkg.Syntax个数:%d", len(pkg.Syntax))
 	for i, file := range pkg.Syntax {
 		g.pkg.files[i] = &File{
 			file:        file,
@@ -293,26 +298,27 @@ func (g *Generator) addPackage(pkg *packages.Package) {
 			lineComment: g.lineComment,
 		}
 	}
-	log.Printf("g:%v", g)
+	log.Printf("addPackage, g:%v", g)
 }
 
 // generate produces the String method for the named type.
 // 这里会生成一个签名为 _ 的函数，通过编译器保证枚举类型的值不会改变
 func (g *Generator) generate(typeName string) {
-	log.Printf("typeName:%s", typeName)
+	log.Printf("generate, typeName:%s", typeName)
 	values := make([]Value, 0, 100)
-	for _, file := range g.pkg.files {
+	for _, file := range g.pkg.files { //遍历生成器的文件对象
 		// Set the state for this run of the walker.
+		log.Printf("generate, file.Name:%s", file.file.Name)
 		file.typeName = typeName
 		file.values = nil
 		if file.file != nil {
-
+			//检查
+			log.Printf("Inspect, file.genDecl:%v", file.genDecl)
 			ast.Inspect(file.file, file.genDecl)
-			log.Printf("file.file.Name:%s", file.file.Name)
 			values = append(values, file.values...)
 		}
 	}
-	log.Printf("values:%v", values)
+	log.Printf("generate, values:%v", values)
 
 	if len(values) == 0 {
 		log.Fatalf("no values defined for type %s", typeName)
@@ -326,6 +332,8 @@ func (g *Generator) generate(typeName string) {
 		g.Printf("\t_ = x[%s - %s]\n", v.originalName, v.str)
 	}
 	g.Printf("}\n")
+
+	//
 	runs := splitIntoRuns(values)
 	// The decision of which pattern to use depends on the number of
 	// runs in the numbers. If there's only one, it's easy. For more than
@@ -428,6 +436,7 @@ func (b byValue) Less(i, j int) bool {
 }
 
 // genDecl processes one declaration clause.
+// 处理一个申明语句, 回调函数
 func (f *File) genDecl(node ast.Node) bool {
 	decl, ok := node.(*ast.GenDecl)
 	if !ok || decl.Tok != token.CONST {
