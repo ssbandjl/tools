@@ -244,7 +244,7 @@ type File struct {
 	file *ast.File // Parsed AST.
 	// These fields are reset for each type being generated.
 	typeName string  // Name of the constant type.
-	values   []Value // Accumulator for constant values of that type.
+	values   []Value // Accumulator for constant values of that type. 常量数组
 
 	trimPrefix  string
 	lineComment bool
@@ -306,6 +306,7 @@ func (g *Generator) addPackage(pkg *packages.Package) {
 func (g *Generator) generate(typeName string) {
 	log.Printf("generate, typeName:%s", typeName)
 	values := make([]Value, 0, 100)
+	log.Printf("文件个数:%d", len(g.pkg.files))
 	for _, file := range g.pkg.files { //遍历生成器的文件对象
 		// Set the state for this run of the walker.
 		log.Printf("generate, file.Name:%s", file.file.Name)
@@ -315,7 +316,8 @@ func (g *Generator) generate(typeName string) {
 			//检查
 			log.Printf("Inspect, file.genDecl:%v", file.genDecl)
 			ast.Inspect(file.file, file.genDecl)
-			values = append(values, file.values...)
+			log.Printf("file.values:%v", file.values)
+			values = append(values, file.values...) //将常量追加到数组中
 		}
 	}
 	log.Printf("generate, values:%v", values)
