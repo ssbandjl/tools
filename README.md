@@ -43,11 +43,15 @@ subdir):" in the subject line, so it is easy to find.
 
 ## generate
 
-### stringer
+### [stringer](https://pkg.go.dev/golang.org/x/tools/cmd/stringer)
 
 #### 简介
 
 作为二进制文件，`stringer` 命令的入口就是如下所示的 [`golang/tools/main.main`](https://draveness.me/golang/tree/golang/tools/main.main) 函数，在下面的代码中
+
+#### 功能
+
+Stringer工具可以为给定的(有符号或无符号的)整型数据类型,自动创建func (t T) String() string方法, 实现fmt.Stringer接口.一般搭配go generate工具一起完成自动化生成任务.
 
 #### [代码位置](cmd/stringer)
 
